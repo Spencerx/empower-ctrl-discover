@@ -24,38 +24,50 @@ import time
 
 ETH_P_ALL = 0x0003
 
-try:
 
-    sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW,
-                         socket.htons(ETH_P_ALL))
+def main(iface):
 
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-    sock.bind(("wlp2s0", ETH_P_ALL))
+    try:
 
-except socket.error as msg:
-    msg = list(msg)
-    print('Socket could not be created: ' + msg[1] + ' (' + str(msg[0]) + ')')
-    sys.exit(1)
+        sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW,
+                             socket.htons(ETH_P_ALL))
 
-found = None
-start = time.time()
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+        sock.bind((iface, ETH_P_ALL))
 
-while not found:
-
-    if time.time() > start + 2:
+    except socket.error as msg:
+        msg = list(msg)
+        print('Unable to create socket: ' + msg[1] + ' (' + str(msg[0]) + ')')
         sys.exit(1)
 
-    pkt = sock.recvfrom(1500)
-    pkt = pkt[0]
+    found = None
+    start = time.time()
 
-    eth_header = struct.unpack("!6s6sH", pkt[0:14])
-    eth_type = socket.ntohs(eth_header[2])
+    while not found:
 
-    if eth_type != 0xeeee:
-        continue
+        if time.time() > start + 2:
+            sys.exit(1)
 
-    payload = struct.unpack("!4sH", pkt[14:])
-    found = (socket.inet_ntoa(payload[0]), payload[1])
+        pkt = sock.recvfrom(1500)
+        pkt = pkt[0]
 
-print("%s %u" % found)
-sys.exit(0)
+        eth_header = struct.unpack("!6s6sH", pkt[0:14])
+        eth_type = socket.ntohs(eth_header[2])
+
+        if eth_type != 0xeeee:
+            continue
+
+        payload = struct.unpack("!4sH", pkt[14:])
+        found = (socket.inet_ntoa(payload[0]), payload[1])
+
+    print("%s %u" % found)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+
+    if len(sys.argv) != 2:
+        print("Invalid argument, usage: %s <iface>" % sys.argv[0])
+        sys.exit(-1)
+
+    main(sys.argv[1])
